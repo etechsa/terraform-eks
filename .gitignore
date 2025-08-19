@@ -1,0 +1,34 @@
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+*gitignore*.tf
+.terraform/
+*.log
+*.bak
+.vagrant/
+
+# Security - Private Keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+
+# AWS Credentials
+.aws/
+credentials
+config
+*.credentials
+
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+.DS_Store
+.vscode/
+.sentinel
+.terraformrc
+terraform.rc
