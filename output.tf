@@ -29,5 +29,5 @@ output "private_key_pem" {
 
 output "ssh_connection_command" {
   description = "Bastion 서버 SSH 접속 명령어"
-  value       = "ssh -i sdp-key.pem ec2-user@${module.bastion.public_ip}"
+  value       = "ssh -i etech-hatiolab-key.pem ec2-user@${module.bastion.public_ip}"
 }
