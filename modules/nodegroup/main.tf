@@ -8,7 +8,7 @@
 
 # 워커 노드 EC2 인스턴스가 사용할 IAM 역할
 resource "aws_iam_role" "node_role" {
-  name = "${var.prefix}-eks-node-role"
+  name = "${var.prefix}-eks-prd-nodegroup-service-role"
 
   # EC2 서비스가 이 역할을 사용할 수 있도록 허용
   assume_role_policy = data.aws_iam_policy_document.node_assume_role.json
@@ -43,7 +43,7 @@ resource "aws_iam_role_policy_attachment" "node_policy_attachments" {
 # EKS 워커 노드 그룹 리소스 생성
 resource "aws_eks_node_group" "node_group" {
   cluster_name    = var.cluster_name                    # 연결할 EKS 클러스터 이름
-  node_group_name = "${var.prefix}-eks-node-group"      # 노드 그룹 이름
+  node_group_name = "${var.prefix}-eks-prd-node-grp"      # 노드 그룹 이름
   node_role_arn   = aws_iam_role.node_role.arn          # 노드가 사용할 IAM 역할
   subnet_ids      = var.subnet_ids                      # 노드가 배치될 서브넷들 (3개 AZ)
 

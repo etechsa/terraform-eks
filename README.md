@@ -5,13 +5,14 @@ AWS EKS 클러스터를 Terraform으로 완전 자동화하여 배포하는 프�
 ## 📋 **프로젝트 개요**
 
 이 프로젝트는 다음 리소스들을 자동으로 생성합니다:
-- **VPC 및 네트워크 인프라** (퍼블릭/프라이빗 서브넷, NAT Gateway)
-- **EKS 클러스터** (Kubernetes 1.33)
-- **EKS 워커 노드그룹** (t3.medium 인스턴스)
-- **Bastion 서버** (kubectl, helm, AWS CLI 사전 설치)
-- **IAM 사용자/역할** (EKS 접근 권한 자동 설정)
+- **VPC 및 네트워크 인프라** (3개 AZ 퍼블릭/프라이빗 서브넷, NAT Gateway)
+- **EKS 클러스터** (Kubernetes 1.32 Production 환경)
+- **EKS 워커 노드그룹** (t3.medium 인스턴스, 3개 AZ 분산)
+- **Bastion 서버** (EIP, kubectl, helm, AWS CLI 사전 설치)
+- **IAM 사용자/역할** (환경별 분리된 EKS 접근 권한)
 - **보안그룹** (최소 권한 원칙)
 - **EC2 키페어** (SSH 접속용)
+- **EKS 애드온** (VPC CNI Prefix Delegation, CoreDNS, EBS CSI Driver 등)
 
 ## 🏗️ **아키텍처 구조**
 
@@ -78,11 +79,11 @@ EKS/
 
 | 리소스 | 타입 | 용도 | 권한 |
 |--------|------|------|------|
-| `sdp-developer` | User | 개발자 로컬 환경 | EKS 클러스터 관리자 |
-| `sdp-service-account` | Role | AWS 콘솔 접근 | EKS 클러스터 관리자 |
-| `sdp-bastion-server-role` | Role | Bastion 서버 | EKS 접근 + kubectl 실행 |
-| `sdp-eks-node-role` | Role | 워커 노드 | EKS 노드 운영 권한 |
-| `sdp-eks-cluster-role` | Role | EKS 클러스터 | 클러스터 운영 권한 |
+| `etech-hatiolab-developer` | User | 개발자 로컬 환경 | EKS 클러스터 관리자 |
+| `etech-hatiolab-service-account` | Role | AWS 콘솔 접근 | EKS 클러스터 관리자 |
+| `etech-hatiolab-bastion-server-role` | Role | Bastion 서버 | EKS 접근 + kubectl 실행 |
+| `etech-hatiolab-eks-prd-nodegroup-service-role` | Role | Production 워커 노드 | EKS 노드 운영 권한 |
+| `etech-hatiolab-eks-prd-cluster-service-role` | Role | Production EKS 클러스터 | 클러스터 운영 권한 |
 
 ### 🎯 **EKS 접근 권한 매트릭스**
 
@@ -116,10 +117,10 @@ terraform --version
 ```hcl
 # 기본 설정
 aws_region = "ap-northeast-2"  # 서울 리전
-prefix     = "sdp"             # 리소스 이름 접두사
+prefix     = "etech-hatiolab"   # 리소스 이름 접두사
 
 # EKS 클러스터 설정
-kubernetes_version = "1.33"       # Kubernetes 버전
+kubernetes_version = "1.32"       # Kubernetes 버전
 node_instance_type = "t3.medium"  # 워커 노드 타입
 ```
 
@@ -137,7 +138,8 @@ terraform apply
 # "yes" 입력하여 확인
 
 # 4. SSH 키 저장 (Bastion 접속용)
-terraform output -raw private_key_pem > sdp-key.pem
+terraform output -raw private_key_pem > etech-hatiolab-key.pem
+chmod 400 etech-hatiolab-key.pem
 ```
 
 ### 4️⃣ **Bastion 서버 접속**
@@ -147,12 +149,56 @@ terraform output -raw private_key_pem > sdp-key.pem
 terraform output bastion_public_ip
 
 # 2. SSH 접속 (MobaXterm 또는 터미널)
-ssh -i sdp-key.pem ec2-user@[BASTION_IP]
+ssh -i etech-hatiolab-key.pem ec2-user@[BASTION_IP]
 
 # 3. EKS 클러스터 확인
 kubectl get nodes
 kubectl cluster-info
 ```
+
+## 📋 **생성되는 AWS 리소스 목록**
+
+### 🔐 **IAM 리소스 (8개)**
+- `etech-hatiolab-developer` (IAM User)
+- `etech-hatiolab-service-account` (IAM Role)
+- `etech-hatiolab-bastion-server-role` (IAM Role)
+- `etech-hatiolab-bastion-server-instance-profile` (Instance Profile)
+- `etech-hatiolab-bastion-server-eks-access` (IAM Policy)
+- `etech-hatiolab-eks-prd-cluster-service-role` (IAM Role)
+- `etech-hatiolab-eks-prd-nodegroup-service-role` (IAM Role)
+- `etech-hatiolab-key` (EC2 Key Pair)
+
+### 🌐 **VPC 리소스 (15개)**
+- `etech-hatiolab-vpc` (VPC)
+- `etech-hatiolab-igw` (Internet Gateway)
+- `etech-hatiolab-public-subnet-a/c/d` (Public Subnets)
+- `etech-hatiolab-private-subnet-a/c/d` (Private Subnets)
+- `etech-hatiolab-private-data-subnet-a/c/d` (Private Data Subnets)
+- `etech-hatiolab-nat-eip` (NAT Gateway EIP)
+- `etech-hatiolab-nat-gateway` (NAT Gateway)
+- `etech-hatiolab-public-rt` (Public Route Table)
+- `etech-hatiolab-private-rt` (Private Route Table)
+
+### 🔒 **보안그룹 (2개)**
+- `etech-hatiolab-bastion-sg` (Bastion Security Group)
+- `etech-hatiolab-nodegroup-sg` (NodeGroup Security Group)
+
+### ⚙️ **EKS 리소스 (2개) - Production**
+- `etech-hatiolab-eks-prd` (EKS Cluster)
+- `etech-hatiolab-eks-prd-node-grp` (EKS NodeGroup)
+
+### 🖥️ **EC2 리소스 (2개)**
+- `etech-hatiolab-bastion` (Bastion EC2 Instance)
+- `etech-hatiolab-bastion-eip` (Bastion EIP)
+
+### 🔧 **EKS 애드온 (5개)**
+- `vpc-cni` (VPC CNI 애드온)
+- `kube-proxy` (Kube Proxy 애드온)
+- `coredns` (CoreDNS 애드온)
+- `aws-ebs-csi-driver` (EBS CSI Driver 애드온)
+- `eks-pod-identity-agent` (Pod Identity Agent 애드온)
+
+### 🎯 **총 리소스 개수: 34개**
 
 ## 🌐 **네트워크 구성**
 
@@ -218,7 +264,7 @@ terraform destroy
 ### ❓ **kubectl 명령어 에러**
 ```bash
 # kubeconfig 재설정
-aws eks update-kubeconfig --region ap-northeast-2 --name sdp-eks
+aws eks update-kubeconfig --region ap-northeast-2 --name etech-hatiolab-eks-prd
 ```
 
 ### ❓ **SSH 접속 실패**

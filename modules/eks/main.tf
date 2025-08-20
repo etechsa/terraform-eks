@@ -8,7 +8,7 @@
 
 # EKS 서비스가 사용할 IAM 역할 생성
 resource "aws_iam_role" "eks_cluster_role" {
-  name = "${var.prefix}-eks-cluster-role"
+  name = "${var.prefix}-eks-prd-cluster-service-role"
 
   # EKS 서비스가 이 역할을 사용할 수 있도록 허용
   assume_role_policy = data.aws_iam_policy_document.eks_assume_role.json
@@ -83,7 +83,7 @@ resource "aws_eks_access_policy_association" "service_account_admin" {
 
 # EKS 클러스터 리소스 생성
 resource "aws_eks_cluster" "this" {
-  name     = "${var.prefix}-eks"                # 클러스터 이름
+  name     = "${var.prefix}-eks-prd"                # 클러스터 이름
   role_arn = aws_iam_role.eks_cluster_role.arn   # 클러스터가 사용할 IAM 역할
   version  = var.kubernetes_version              # Kubernetes 버전
 
